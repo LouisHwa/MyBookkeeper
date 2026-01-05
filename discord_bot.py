@@ -58,21 +58,18 @@ async def process_with_agent(message):
             # print(event)
             if event.content and event.content.parts:
                 for part in event.content.parts:
-                    # We look specifically for the "function_response" object
+                    # Look specifically for the "function_response" object
                     if part.function_response:
                         # Extract the dictionary we returned from Python
-                        # Based on your log: {'result': 'Saved, terminate the task.'}
+                        # {'result': 'Saved, terminate the task.'}
                         result_data = part.function_response.response
                         result_text = str(result_data.get('result', ''))
                         
-                        # YOUR REQUESTED LOGIC:
                         if "Image analyzed successfully" in result_text:
-                            # Stop the agent immediately and return success to Discord
                             return f"✅ {result_text}!"
 
             if event.is_final_response() and event.content.parts:
                 text = event.content.parts[0].text
-                # Only update if it's actual text, not a tool call
                 if text and not text.strip().startswith('{'):
                     agent_reply = text
         
@@ -103,13 +100,10 @@ async def on_message(message):
 
     print(f"Received from Discord: {message.content}")
     
-    # Send "Typing..." status so it feels responsive
     async with message.channel.typing():
         response = await process_with_agent(message)
     
-    # Reply back on Discord
     await message.channel.send(response)
 
-# 4. RUN THE BOT
 if __name__ == "__main__":
     client.run(DISCORD_TOKEN)
