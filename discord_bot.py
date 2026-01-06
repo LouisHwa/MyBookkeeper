@@ -1,10 +1,8 @@
 import discord
 import os
-import io
 from dotenv import load_dotenv 
-from google.genai import types
 from bookkeeper.agent import setup_session_and_runner, USER_ID, SESSION_ID
-from PIL import Image
+from utils import prepare_agent_input
 
 load_dotenv()
 
@@ -16,62 +14,14 @@ DISCORD_CHANNEL_ID=os.getenv("DISCORD_CHANNEL_ID")
 
 async def process_with_agent(message):
     try:
-        has_image = "NO"
-        request = message.content
-        parts_list=[]
-
-        if message.attachments:
-            has_image = "YES"
-            request = "Attached is an transaction image for your analysis and write it down in expenses.csv"
-
-            attachment = message.attachments[0]
-            if attachment.content_type and attachment.content_type.startswith('image/'):
-                image_bytes = await attachment.read()
-                with Image.open(io.BytesIO(image_bytes)) as img:
-                    img.thumbnail((512, 512))
-
-                    buffered = io.BytesIO()
-                    img.save(buffered, format="JPEG", quality=65) # JPEG saves more space than PNG
-                    image_bytes = buffered.getvalue()
-
-                image_part = types.Part.from_bytes(data=image_bytes, mime_type="image/jpeg")
-                parts_list.append(image_part)
-
-        timestamp = message.created_at.strftime("%d/%m/%Y %H:%M:%S")
-        text_part = types.Part(text=(
-            f"Date and time sent: {timestamp} "
-            f"User Request: {request} "
-            f"Contains Image: {has_image} "
-        ))
-        parts_list.insert(0, text_part)
-
         
-        print(f"Combined Prompt for Agent: {parts_list}")
-        content = types.Content(role='user', parts=parts_list)
-
+        content = await prepare_agent_input(message)
         session, runner = await setup_session_and_runner()
-        
         events = runner.run_async(user_id=USER_ID, session_id=SESSION_ID, new_message=content)
-        
         agent_reply = "Processing..."
         async for event in events:
-            # print(event)
-            if event.content and event.content.parts:
-                for part in event.content.parts:
-                    # Look specifically for the "function_response" object
-                    if part.function_response:
-                        # Extract the dictionary we returned from Python
-                        # {'result': 'Saved, terminate the task.'}
-                        result_data = part.function_response.response
-                        result_text = str(result_data.get('result', ''))
-                        
-                        if "Image analyzed successfully" in result_text:
-                            return f"✅ {result_text}!"
-
-            if event.is_final_response() and event.content.parts:
-                text = event.content.parts[0].text
-                if text and not text.strip().startswith('{'):
-                    agent_reply = text
+            if event.is_final_response():
+                agent_reply = event.content.parts[0].text
         
         return agent_reply
     
@@ -94,7 +44,6 @@ async def on_message(message):
     if message.author == client.user:
         return
 
-    
     if message.channel.id != int(DISCORD_CHANNEL_ID):
         return
 
