@@ -17,3 +17,6 @@ Steps to create a discord bot:
 
 How to run: 
 in your terminal(pointed to your venv), run 'python discord_bot.py'
+
+Flow: 
+<img width="701" height="580" alt="image" src="https://github.com/user-attachments/assets/174815c6-df06-4ac1-8ec6-a6d339c63a99" />
